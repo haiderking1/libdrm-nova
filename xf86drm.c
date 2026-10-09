@@ -3599,6 +3599,27 @@ static int get_subsystem_type(const char *device_path)
 }
 #endif
 
+#ifdef __linux__
+/*
+ * Returns whether the device at the sysfs path `device_path` is on the auxiliary
+ * bus: a function of its parent device that another driver than the parent's
+ * drives, such as the DRM driver of a GPU whose core driver is another.
+ */
+static bool is_auxiliary_device(const char *device_path)
+{
+    char path[PATH_MAX + 1] = "";
+    char link[PATH_MAX + 1] = "";
+    const char *name;
+
+    snprintf(path, sizeof(path), "%s/subsystem", device_path);
+    if (readlink(path, link, PATH_MAX) < 0)
+        return false;
+
+    name = strrchr(link, '/');
+    return name && strcmp(name, "/auxiliary") == 0;
+}
+#endif
+
 static int drmParseSubsystemType(int maj, int min)
 {
 #ifdef __linux__
@@ -3607,6 +3628,10 @@ static int drmParseSubsystemType(int maj, int min)
     int subsystem_type;
 
     snprintf(path, sizeof(path), "/sys/dev/char/%d:%d/device", maj, min);
+
+    /* An auxiliary device is described by its parent, the device it is a function of. */
+    if (is_auxiliary_device(path))
+        strncat(path, "/..", PATH_MAX);
 
     subsystem_type = get_subsystem_type(path);
     /* Try to get the parent (underlying) device type */
@@ -3637,6 +3662,14 @@ get_pci_path(int maj, int min, char *pci_path)
     snprintf(path, sizeof(path), "/sys/dev/char/%d:%d/device", maj, min);
     if (!realpath(path, pci_path)) {
         strcpy(pci_path, path);
+        return;
+    }
+
+    /* An auxiliary device is described by its parent, the device it is a function of. */
+    if (is_auxiliary_device(pci_path)) {
+        term = strrchr(pci_path, '/');
+        if (term)
+            *term = 0;
         return;
     }
 
