@@ -1,4 +1,4 @@
-# libdrm-nova, soka's libdrm fork
+# libdrm-nova, haider's libdrm fork
 
 libdrm with one change for my [nova](https://github.com/haiderking1/nova)
 stack: DRM devices on the auxiliary bus, such as nova-drm (the DRM driver of
